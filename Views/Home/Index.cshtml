@@ -1,0 +1,495 @@
+﻿@using ArdaProje.Services;
+@inject IUserSessionService UserSessionService
+
+@{
+    ViewData["Title"] = "Ana Sayfa";
+    bool isPT = UserSessionService.PtID.HasValue; // PTID null değilse kullanıcı bir PT'dir
+    int? UserIdd = UserSessionService.UserId;
+    ViewBag.IsPT = isPT;
+}
+
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='utf-8' />
+    <link href="https://cdn.jsdelivr.net/npm/toastr@latest/toastr.min.css" rel="stylesheet">
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js'></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastr@latest/toastr.min.js"></script>
+
+    <style>
+        .fc-timegrid-slot {
+            height: 60px; /* Varsayılan değerden daha yüksek bir değer */
+        }
+
+        .fc-timegrid-slot-label {
+            line-height: 60px; /* Slot yüksekliği ile aynı değere ayarlayın */
+        }
+
+        .fc-event.statusİstek {
+            background-color: orange;
+        }
+
+        .fc-event.statusOnay {
+            background-color: green;
+        }
+
+        .fc-event.statusRed {
+            background-color: red;
+        }
+
+        .fc-event.statusClosed {
+            background-color: gray; /* Kapalı saatler için özel renk */
+            pointer-events: none !important; /* Tıklamayı engeller */
+            color: red; /* Metin rengini beyaz yapın */
+        }
+
+        .IsSelectable {
+        background-color: purple; /* Diğer kullanıcı randevuları için özel renk */
+        color: white; /* Metin rengi */
+    }
+    </style>
+    @Html.Partial("~/Views/Shared/_Header.cshtml");
+</head>
+<body>
+    @if (!isPT)
+    {
+        <div class="alert alert-info">
+            <span>Kalan Ders Sayısı: @ViewBag.RemainingLessons</span>
+        </div>
+    }
+    <div class="container">
+
+        <div id='calendar'></div>
+
+        <div class="modal" id="eventModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Etkinlik Detayları</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Form elemanları buraya eklendi -->
+                        <form id="eventForm">
+                            <input type="hidden" id="eventId" />
+                            <input type="hidden" id="userID" />
+                            <div class="mb-3">
+                                <label for="AppointmentDateTime" class="form-label">Başlangıç Etkinliği</label>
+                                <input type="datetime-local" class="form-control" name="AppointmentDateTime" id="AppointmentDateTime" placeholder="AppointmentDateTime" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label for="ptFirstName" class="form-label">İsim</label>
+                                <select id="userSelect" class="form-control" style="display:none;"></select>
+                                <input type="text" class="form-control" name="ptFirstName" id="ptFirstName" placeholder="ptFirstName" readonly>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="top-buttons">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                            <button type="button" class="btn btn-primary" id="saveButton">Değişiklikleri Kaydet</button>
+                            <button type="button" class="btn btn-dark" id="deleteButton" style="display:none;">Etkinliği Sil</button>
+                        </div>
+                        <div class="bottom-buttons">
+                            <button type="button" class="btn btn-success" id="approveButton" style="display:none;">Onayla</button>
+                            <button type="button" class="btn btn-danger" id="rejectButton" style="display:none;">Reddet</button>
+                            <button id="closeTimeSlotButton" class="btn btn-warning" style="display:none;">Saati Kapat</button>
+                            <button type="button" class="btn btn-warning" id="openClosedSlotButton" style="display:none;">Kapalı Alanı Aç</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            var isPT = @isPT.ToString().ToLower();
+            var currentUserId = @Html.Raw(Json.Serialize(UserSessionService.UserId));
+            var calendar;
+            document.addEventListener('DOMContentLoaded', function () {
+                var calendarEl = document.getElementById('calendar');
+                calendar = new FullCalendar.Calendar(calendarEl, {
+                    timeZone: 'Europe/Istanbul',
+                    initialView: 'timeGridWeek', // Haftalık görünümde başla
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+                    },
+                    buttonText: {
+                        today: "Bugün",
+                        month: 'Ay',
+                        week: 'Hafta',
+                        day: 'Gün',
+                        list: 'Liste'
+                    },
+                    firstDay: 1,
+                    dateClick: function (info) {
+                        // Switch to the timeGridWeek view
+                        calendar.changeView('timeGridWeek', info.dateStr);
+                    },
+
+                    eventSources: [
+                        {
+                            url: '/Home/GetCalendarEvents', // Randevular için endpoint
+                            method: 'GET'
+                        },
+                        {
+                            url: '/Home/GetClosedSlots', // Kapalı saatler için endpoint
+                            method: 'GET'
+                        }
+                    ],
+                    selectable: true,
+                    selectHelper: true,
+                    allDaySlot: false, // Tüm gün etkinliklerini gizle
+                    slotMinTime: "09:00:00", // Görünüm saat aralığını sabah 9'a ayarla
+                    slotMaxTime: "22:00:00", // Görünüm saat aralığını akşam 10'a ayarla
+                    slotDuration: '01:00:00', // Saatlik aralıklar için
+                    slotLabelInterval: '01:00:00', // Etiketler saatlik gösterilecek
+                    contentHeight: 'auto',
+                    select: function (info) {
+                        var closedEvents = calendar.getEvents().filter(event => event.extendedProps.status === 'statusClosed');
+                        var isClosed = closedEvents.some(event => {
+                            var eventStart = new Date(event.start);
+                            var eventEnd = new Date(eventStart.getTime() + 60 * 60 * 1000);
+
+                            return info.start >= eventStart && info.start < eventEnd; // Kapalı saat aralığında mı?
+                        });
+
+                        $('#approveButton').hide();
+                        $('#rejectButton').hide();
+                        $('#deleteButton').hide();
+
+
+                        $('#eventId').val('');
+                        $('#AppointmentDateTime').val(info.startStr); // Seçilen başlangıç tarih ve saatini ayarla
+
+                        // Yeni etkinlik için modal penceresini aç ve ayarla
+                        $('#eventModal .modal-title').text('Yeni Etkinlik');
+
+                        //$('#eventModal .btn-danger').text('Etkinliği Sil').hide(); // Silme butonunu gizle
+                        $('#openClosedSlotButton').hide();
+                        $('#eventModal').modal('toggle');
+
+                        var UserIdd = '@UserSessionService.UserId';
+                        var PtId = '@UserSessionService.PtID';
+                        if (PtId) {
+                            $.ajax({
+                                url: '/Home/GetUsersByPTId', // API'nin URL'si
+                                data: { ptId: PtId }, // PT ID'sini sorguya dahil et
+                                type: 'GET', // HTTP isteği türü
+                                success: function (userList) {
+                                    var userSelect = $('#userSelect');
+                                    var ptFirstName = $('#ptFirstName');
+
+                                    if (userList.length > 0) { // Eğer kullanıcı listesi boş değilse
+                                        userSelect.empty(); // Mevcut seçenekleri temizle
+                                        userList.forEach(function (user) {
+                                            userSelect.append($('<option></option>').val(user.userID).text(user.firstName)); // Kullanıcı listesini doldur
+                                        });
+                                        userSelect.show(); // Dropdown'ı göster
+                                        ptFirstName.hide(); // Input alanını gizle
+                                    } else { // Kullanıcı listesi boşsa
+                                        userSelect.hide(); // Dropdown'ı gizle
+                                        ptFirstName.show(); // Input alanını göster
+                                    }
+                                },
+                                error: function () {
+                                    alert('Kullanıcı listesi çekilemedi.'); // Hata mesajı
+                                    $('#userSelect').hide(); // Dropdown'ı gizle
+                                    $('#ptFirstName').show(); // Input alanını göster
+                                }
+                            });
+                        } else {
+                            debugger
+                            $.ajax({
+                                url: '/Home/GetPTName',
+                                data: { userId: UserIdd ? UserIdd : ptIdd }, // userId doluysa onu, değilse ptId'yi gönder
+                                success: function (ptName) {
+                                    $('#ptFirstName').val(ptName); // PT adını input alanına set et
+                                    $('#eventModal').modal('show'); // Etkinlik oluşturma modalını göster
+                                },
+                                error: function () {
+                                    debugger
+                                    alert('PT bilgisi çekilemedi.');
+                                }
+                            });
+                        }
+
+                        if (isClosed && isPT) {
+                            $('#openClosedSlotButton').show(); // Kapalı alan varsa ve PT ise düğmeyi göster
+                            $('#closeTimeSlotButton').hide(); // Kapalı alan varsa kapatma düğmesini gizle
+                            $('#eventModal .btn-primary').text('Etkinlik Oluştur').hide();
+                        } else if (!isClosed && isPT) {
+                            $('#closeTimeSlotButton').show(); // Kapalı alan yoksa kapatma düğmesini göster
+                            $('#openClosedSlotButton').hide();
+                            $('#eventModal .btn-primary').text('Etkinlik Oluştur').show();
+                            $('#userSelect').prop('disabled', false);
+                        }
+                        else if (isClosed) {
+                            $('#closeTimeSlotButton').hide(); // Kapalı alan yoksa kapatma düğmesini göster
+                            $('#openClosedSlotButton').hide(); // Kapalı alan yoksa açma düğmesini gizle
+                            $('#eventModal .btn-primary').text('Etkinlik Oluştur').hide();
+                        }
+                        else {
+                            $('#closeTimeSlotButton').hide(); // Kapalı alan yoksa kapatma düğmesini göster
+                            $('#openClosedSlotButton').hide(); // Kapalı alan yoksa açma düğmesini gizle
+                            $('#eventModal .btn-primary').text('Etkinlik Oluştur').show();
+                        }
+                    },
+
+                    eventClick: function (info) {
+                        // Etkinlik güncelleme için modal penceresini aç ve ayarla
+                        $('#eventModal .modal-title').text('Etkinlik Güncelle');
+                        $('#eventModal .btn-primary').text('Etkinliği Kaydet').show();
+                        $('#eventModal .btn-dark').text('Etkinliği Sil').show();
+                        $('#openClosedSlotButton').hide();
+                        $('#closeTimeSlotButton').hide();
+                        $('#eventModal').modal('toggle');
+
+                        var UserIdd = info.event.extendedProps.userID;
+                        var ptIdd = '@UserSessionService.PtID';
+                        if (UserIdd || ptIdd) {
+                            $.ajax({
+                                url: '/Home/GetPTName',
+                                data: { userId: UserIdd ? UserIdd : ptIdd }, // userId doluysa onu, değilse ptId'yi gönder
+                                success: function (ptName) {
+                                    $('#ptFirstName').val(ptName); // PT adını input alanına set et
+                                    $('#eventModal').modal('show'); // Etkinlik oluşturma modalını göster
+                                },
+                                error: function () {
+                                    debugger
+                                    alert('PT bilgisi çekilemedi.');
+                                }
+                            });
+                        } else {
+                            $('#ptFirstName').val(''); // Eğer herhangi bir ID mevcut değilse input alanını temizle
+                        }
+                        // PT kontrolü ve randevu sahibi kontrolü
+                        if ((isPT || info.event.extendedProps.status == "statusİstek") && info.event.extendedProps.userID === currentUserId) {
+                            $('#saveButton').show();
+                            $('#deleteButton').show();
+                            $('#userSelect').prop('disabled', true);
+                        } else {
+                            $('#saveButton').hide();
+                            $('#deleteButton').hide();
+                        }
+                        if (isPT) {
+                            $('#deleteButton').hide();
+                            $('#approveButton').show();
+                            $('#rejectButton').show();
+                            $('#userSelect').prop('disabled', true);
+                        } else {
+                            $('#saveButton').hide();
+                            $('#approveButton').hide();
+                            $('#rejectButton').hide();
+                        }
+                        if (info.event.extendedProps.status === "statusOnay") {
+                            $('#approveButton').hide();
+                            $('#rejectButton').hide();
+                            $('#deleteButton').show();
+
+
+                        }
+                        if (info.event.extendedProps.status === "statusRed") {
+                            $('#rejectButton').hide();
+                        }
+
+                        // Form alanlarını etkinlik verileri ile doldurun
+                        $('#eventId').val(info.event.id);
+                        //$('#AppointmentDateTime').val(info.event.extendedProps.AppointmentDateTime);
+                        $('#AppointmentDateTime').val(info.event.start.toISOString().slice(0, 19));
+                        $('#Status').val(info.event.extendedProps.status);
+                        $('#ptFirstName').val(info.event.extendedProps.ptFirstName);
+                        $('#userID').val(info.event.extendedProps.userID);
+                        //pt için
+                    },
+                    eventClassNames: function (arg) {
+                        var status = arg.event.extendedProps.status;
+                        var IsSelectable = arg.event.extendedProps.isSelectable;
+                        if (IsSelectable) {
+                            return ['IsSelectable']; // Diğer kullanıcı randevusu için özel sınıf
+                        }
+                        switch (status) {
+                            case 'statusİstek':
+                                return ['statusİstek'];
+                            case 'statusOnay':
+                                return ['statusOnay'];
+                            case 'statusRed':
+                                return ['statusRed'];
+                            case 'statusClosed':
+                                return ['statusClosed'];
+                            default:
+                                return [];
+                        }
+                    },
+                });
+                calendar.render();
+            });
+
+            $('#saveButton').on('click', function () {
+                var id = $('#eventId').val();
+                var userIDforPT = $('#userSelect').val();
+                var url = id ? '/Home/UpdateEvent' : '/Home/AddEvent';
+                var eventData = {
+                    AppointmentID: id,
+                    AppointmentDateTime: $('#AppointmentDateTime').val(),
+                    UserID: userIDforPT
+                };
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: eventData,
+                    success: function (response) {
+                        $('#eventModal').modal('hide');
+                        calendar.refetchEvents(); // Takvimi güncelle
+                        if (response.success) {
+                            toastr.success(response.message);
+                        } else {
+                            toastr.error(response.message);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Etkinlik işlemi başarısız:", error);
+                    }
+                });
+            });
+
+            $('#deleteButton').on('click', function () {
+                var id = $('#eventId').val();
+                var userIDforPT = $('#userID').val();
+                if (id) {
+                    $.ajax({
+                        url: '/Home/DeleteEvent', // Etkinliği silmek için sunucu tarafı endpoint
+                        type: 'POST',
+                        data: { id: id, UserID: userIDforPT },
+                        success: function (response) {
+                            $('#eventModal').modal('hide');
+                            calendar.refetchEvents(); // Etkinlik silindikten sonra takvimi güncelle
+                            if (response.success) {
+                                toastr.success(response.message);
+                            } else {
+                                toastr.error(response.message);
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Etkinlik silme işlemi başarısız:", error);
+                        }
+                    });
+                } else {
+                    console.error("Etkinlik ID'si bulunamadı.");
+                }
+            });
+
+            $('#approveButton').on('click', function () {
+                // Etkinliği onaylama işlemi
+                var id = $('#eventId').val();
+                var userIDforPT = $('#userID').val();
+                if (id) {
+                    $.ajax({
+                        url: '/Home/ApproveEvent', // Etkinliği silmek için sunucu tarafı endpoint
+                        type: 'POST',
+                        data: { id: id, UserID: userIDforPT },
+                        success: function (response) {
+                            $('#eventModal').modal('hide');
+                            calendar.refetchEvents(); // Etkinlik silindikten sonra takvimi güncelle
+                            if (response.success) {
+                                toastr.success(response.message);
+                            } else {
+                                toastr.error(response.message);
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Etkinlik onaylama işlemi başarısız:", error);
+                        }
+                    });
+                } else {
+                    console.error("Etkinlik ID'si bulunamadı.");
+                }
+            });
+
+            $('#rejectButton').on('click', function () {
+                // Etkinliği reddetme işlemi
+                var id = $('#eventId').val();
+                var userIDforPT = $('#userID').val();
+                if (id) {
+                    $.ajax({
+                        url: '/Home/RejectEvent', // Etkinliği silmek için sunucu tarafı endpoint
+                        type: 'POST',
+                        data: { id: id, UserID: userIDforPT },
+                        success: function (response) {
+                            $('#eventModal').modal('hide');
+                            calendar.refetchEvents(); // Etkinlik silindikten sonra takvimi güncelle
+                            if (response.success) {
+                                toastr.success(response.message);
+                            } else {
+                                toastr.error(response.message);
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Etkinlik reddetme işlemi başarısız:", error);
+                        }
+                    });
+                } else {
+                    console.error("Etkinlik ID'si bulunamadı.");
+                }
+            });
+
+            $('#closeTimeSlotButton').on('click', function () {
+                var appointmentDateTime = $('#AppointmentDateTime').val();
+                // Kapalı saatler için bir etkinlik oluşturma veya bu saati rezervasyona kapatma
+                $.ajax({
+                    url: '/Home/CloseTimeSlot', // Backend endpoint
+                    type: 'POST',
+                    data: { appointmentDateTime: appointmentDateTime },
+                    success: function (response) {
+                        calendar.refetchEvents(); // Takvimi güncelle
+                        $('#eventModal').modal('hide');
+                        if (response.success) {
+                            toastr.success(response.message);
+                        } else {
+                            toastr.error(response.message);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Saati kapatma işlemi başarısız:", error);
+                    }
+                });
+            });
+
+            // AJAX ile kapalı alanı açmak için düğmeye işlev ekleme
+            $('#openClosedSlotButton').on('click', function () {
+                var appointmentDateTime = $('#AppointmentDateTime').val();
+                if (eventId) {
+                    $.ajax({
+                        url: '/Home/OpenClosedSlot', // Kapalı alanı açmak için endpoint
+                        type: 'POST',
+                        data: { appointmentDateTime: appointmentDateTime },
+                        success: function (response) {
+                            if (response.success) {
+                                console.log("Kapalı alan açıldı.");
+                                calendar.refetchEvents(); // Takvimi güncelle
+                                $('#eventModal').modal('hide'); // Modalı kapat
+                            } else {
+                                console.error(response.message);
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Kapalı alanı açma işlemi başarısız:", error);
+                        }
+                    });
+                } else {
+                    console.error("Kapalı alan kimliği bulunamadı.");
+                }
+            });
+
+
+
+        </script>
+
+
+    </div>
+</body>
+</html>

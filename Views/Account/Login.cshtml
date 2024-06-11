@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iofrm</title>
+    @* @<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">@ *@
+    <link rel="stylesheet" type="text/css" href="~/css/fontawesome-all.min.css">
+    <link rel="stylesheet" type="text/css" href="~/css/iofrm-style.css">
+    <link rel="stylesheet" type="text/css" href="~/css/iofrm-theme28.css">
+    <style>
+        .form-holder {
+            width: 50%;
+            margin-top: 5%;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-body">
+        <div class="website-logo">
+            <a href="index.html">
+                <div class="logo">
+                    <img class="logo-size" src="~/images/logo-light.svg" alt="">
+                </div>
+            </a>
+        </div>
+        <div class="row">
+            <div class="img-holder">
+                <div class="bg"></div>
+                <div class="info-holder">
+                </div>
+            </div>
+            <div class="form-holder">
+                <div class="form-content">
+                    <div class="form-items">
+                        <h3>Get more things done with Loggin platform.</h3>
+                        <p>Access to the most powerfull tool in the entire design and web industry.</p>
+                        <div class="page-links">
+                            <a href="Login.cshtml" class="active">Login</a><a href="register24.cshtml">Register</a>
+                        </div>
+                         @if (ViewBag.Error != null)
+                        {
+                            <div class="text-danger">@ViewBag.Error</div>
+                        }
+                        <form method="post" action="/Account/Login">
+                            <input class="form-control" type="text" name="email" placeholder="E-mail Address" required>
+                            <input class="form-control" type="password" name="password" placeholder="Password" required>
+                            <div class="form-button">
+                                <button id="submit" type="submit" class="ibtn">Login</button> <a href="forget24.cshtml">Forget password?</a>
+                            </div>
+                        </form>
+                        <div class="other-links">
+                            <span>Or login with</span><a href="#">Facebook</a><a href="#">Google</a><a href="#">Linkedin</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @* @<script src="~/js/jquery.min.js"></script>@ *@
+    <script src="~/js/popper.min.js"></script>
+    @* @<script src="js/bootstrap.min.js"></script>@
+    @<script src="~/js/main.js"></script>@ *@
+</body>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var loginForm = document.querySelector("form");
+
+        loginForm.addEventListener("submit", function (e) {
+            var email = document.querySelector("[name='email']").value;
+            var password = document.querySelector("[name='password']").value;
+
+            // Ýsteðe baðlý: Burada kullanýcý adý ve þifreyi doðrulayabilirsiniz
+            if (email === "" || password === "") {
+                e.preventDefault(); // Form gönderimini durdur
+                alert("Email and password are required.");
+            }
+            // Burada ek iþlemler yapabilirsiniz
+        });
+    });
+</script>
+</html>

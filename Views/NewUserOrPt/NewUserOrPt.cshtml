@@ -1,0 +1,140 @@
+﻿@using ArdaProje.Services;
+@inject IUserSessionService UserSessionService
+
+@{
+    ViewData["Title"] = "Ana Sayfa";
+    bool isPt = false; // Varsayılan olarak false ata
+    ViewBag.IsPt = isPt;
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <title>Yeni Kullanıcı/PT Kaydı</title>
+    
+</head>
+<body>
+    @Html.Partial("~/Views/Shared/_Header.cshtml");
+    <div class="container mt-5">
+        <h2>Yeni Kullanıcı/PT Kaydı</h2>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @TempData["SuccessMessage"]
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        }
+         @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                @TempData["ErrorMessage"]
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        }
+
+        <form asp-controller="NewUserOrPt" asp-action="NewUserOrPt" method="post" class="needs-validation" novalidate>
+
+            <div class="form-group">
+                <label for="firstName">Adı:</label>
+                <input type="text" class="form-control" id="firstName" name="FirstName" value="@Model?.FirstName" required>
+                <div class="invalid-feedback">Ad gereklidir.</div>
+            </div>
+
+            <div class="form-group">
+                <label for="lastName">Soyadı:</label>
+                <input type="text" class="form-control" id="lastName" name="LastName" value="@Model?.LastName" required>
+                <div class="invalid-feedback">Soyad gereklidir.</div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" class="form-control" id="email" name="Email" value="@Model?.Email" required>
+                <div class="invalid-feedback">Geçerli bir email adresi giriniz.</div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Şifre:</label>
+                <input type="password" class="form-control" id="password" name="Password" value="@Model?.Password" required>
+                <div class="invalid-feedback">Şifre gereklidir.</div>
+            </div>
+
+            <div class="form-group">
+                <label for="isPT">Personal Trainer mısınız?</label>
+                <select class="form-control" id="isPT" name="IsPT" required>
+                    <option value="false" selected>Hayır</option>
+                    <option value="true">Evet</option>
+                </select>
+            </div>
+
+         @*   <div class="form-group" id="expertiseAreaDiv" style="display:none;">
+                <label for="expertiseArea">Uzmanlık Alanı:</label>
+                <input type="text" class="form-control" id="expertiseArea" name="ExpertiseArea">
+            </div>*@
+
+            <div class="form-group" id="selectPTDiv" style="display:none;">
+                <label for="ptSelect">Personal Trainer Seçiniz:</label>
+                <select class="form-control" id="ptSelect" name="PTID" required>
+                    @foreach (var pt in ViewBag.PTSelectList)
+                    {
+                        <option value="@pt.Value">@pt.Text</option>
+                    }
+                </select>
+            </div>
+
+            <div class="form-group" id="selectRemainingLessonsDiv" style="display:none;">
+                <label for="lastName">Ders Sayısı:</label>
+                <input type="number" class="form-control" id="remainingLessons" name="remainingLessons" value="@Model?.RemainingLessons" required>
+                <div class="invalid-feedback">Ders sayısı gereklidir.</div>
+            </div>
+
+
+            <button type="submit" class="btn btn-primary">Kaydol</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('isPT').addEventListener('change', function () {
+            var isPt = this.value === 'true';
+            //document.getElementById('expertiseAreaDiv').style.display = isPt ? 'block' : 'none';
+            document.getElementById('selectPTDiv').style.display = isPt ? 'none' : 'block';
+            document.getElementById('selectRemainingLessonsDiv').style.display = isPt ? 'none' : 'block';
+        });
+
+        // Initial visibility settings based on default selection
+        updateVisibility();
+
+        // Bootstrap form validation
+        (function () {
+            'use strict';
+            window.addEventListener('load', function () {
+                updateVisibility();
+                var forms = document.getElementsByClassName('needs-validation');
+                var validation = Array.prototype.filter.call(forms, function (form) {
+                    form.addEventListener('submit', function (event) {
+                        if (form.checkValidity() === false) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        form.classList.add('was-validated');
+                    }, false);
+                });
+            }, false);
+        })();
+
+        function updateVisibility() {
+            var isPt = document.getElementById('isPT').value === 'true';
+            //document.getElementById('expertiseAreaDiv').style.display = isPt ? 'block' : 'none';
+            document.getElementById('selectPTDiv').style.display = isPt ? 'none' : 'block';
+            document.getElementById('selectRemainingLessonsDiv').style.display = isPt ? 'none' : 'block';
+        }
+    </script>
+
+</body>
+</html>

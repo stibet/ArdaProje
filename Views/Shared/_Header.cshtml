@@ -1,0 +1,40 @@
+﻿@{
+    bool isPt = ViewBag.IsPt != null ? (bool)ViewBag.IsPt : false; // Eğer null ise varsayılan değer olarak false kullan
+}
+@using ArdaProje.Services;
+@inject IUserSessionService UserSessionService
+
+@{
+    bool IsPT = UserSessionService.PtID.HasValue; // PTID null değilse kullanıcı bir PT'dir
+    string username = UserSessionService.Username;
+}
+<style>
+    .nav-link:after {
+        content: none;
+    }
+</style>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+<header class="p-3 bg-dark text-white">
+    <div class="container">
+        <div class="d-flex flex-wrap align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+                <a href="@Url.Action("Index", "Home")" class="nav-link px-2 text-white">
+                    <i class="fa fa-calendar" aria-hidden="true"></i>
+                </a>
+                @if (isPt)
+                {
+                    <ul class="nav mb-2 mb-md-0">
+                        <li><a href="@Url.Action("NewUserOrPt", "NewUserOrPt")" class="nav-link px-2 text-white">Yeni Kayıt</a></li>
+                    </ul>
+                    <ul class="nav mb-2 mb-md-0">
+                        <li><a href="@Url.Action("EditUser", "EditUser")" class="nav-link px-2 text-white">Kayıt Düzenle</a></li>
+                    </ul>
+                }
+            </div>
+            <h2>@username</h2>
+            <div class="text-end">
+                <a href="/Account/LogOut" class="btn btn-outline-light me-2">Çıkış</a>
+            </div>
+        </div>
+    </div>
+</header>
